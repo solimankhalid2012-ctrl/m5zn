@@ -1,0 +1,1695 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>مخزن المشاريع الذكي</title>
+<style>
+  *{box-sizing:border-box}
+  :root{
+    --bg-0:#0a0d13;--bg-1:#0e1219;
+    --panel:rgba(19,24,33,0.72);--panel-solid:#131821;
+    --border:rgba(255,255,255,0.06);--border-strong:rgba(255,255,255,0.1);
+    --text:#cdd6f4;--text-dim:#a6adc8;--muted:#6c7086;
+    --accent:#cba6f7;--accent-2:#89b4fa;
+    --green:#a6e3a1;--yellow:#f9e2af;--peach:#fab387;--pink:#f5c2e7;--teal:#94e2d5;--red:#f38ba8;
+    --radius:14px;
+  }
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg-0);color:var(--text);
+    font-family:"Segoe UI",Tahoma,"Noto Kufi Arabic",system-ui,-apple-system,sans-serif;
+    display:flex;flex-direction:column;height:100vh;overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ===== خلفية ===== */
+  .atmosphere{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;
+    background:radial-gradient(ellipse at 20% 0%,#1a1530 0%,transparent 55%),
+      radial-gradient(ellipse at 100% 100%,#0e2230 0%,transparent 50%),
+      linear-gradient(180deg,#0a0d13 0%,#0b0f16 100%);}
+  .grid-overlay{position:absolute;inset:0;
+    background-image:linear-gradient(rgba(255,255,255,0.018) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,0.018) 1px,transparent 1px);
+    background-size:46px 46px;
+    mask-image:radial-gradient(ellipse at 50% 40%,black 20%,transparent 75%);
+    -webkit-mask-image:radial-gradient(ellipse at 50% 40%,black 20%,transparent 75%);}
+  .glow{position:absolute;border-radius:50%;filter:blur(110px);opacity:.28;will-change:transform}
+  .glow-1{width:520px;height:520px;background:#3d2a6b;top:-180px;left:-160px;animation:drift1 26s ease-in-out infinite}
+  .glow-2{width:460px;height:460px;background:#0e3a52;bottom:-160px;right:-140px;animation:drift2 32s ease-in-out infinite}
+  .glow-3{width:380px;height:380px;background:#4a1f4a;top:45%;left:45%;animation:drift3 38s ease-in-out infinite}
+  @keyframes drift1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(60px,40px) scale(1.1)}}
+  @keyframes drift2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-50px,-30px) scale(1.08)}}
+  @keyframes drift3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-70px,50px) scale(0.92)}}
+  #floaters{position:absolute;inset:0}
+  .floater{position:absolute;font-family:"JetBrains Mono",monospace;font-weight:600;white-space:nowrap;
+    animation:floaty var(--dur) ease-in-out infinite;animation-delay:var(--delay);will-change:transform,opacity}
+  @keyframes floaty{0%,100%{transform:translate(0,0) rotate(0);opacity:var(--op)}50%{transform:translate(var(--dx),var(--dy)) rotate(var(--rot));opacity:calc(var(--op)*1.4)}}
+
+  /* ===== الهيدر ===== */
+  header.top{position:relative;z-index:2;display:flex;align-items:center;gap:12px;
+    padding:11px 18px;border-bottom:1px solid var(--border);
+    background:rgba(14,18,25,0.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+  .logo{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    color:#0a0d13;font-size:12px;font-weight:800;box-shadow:0 4px 16px rgba(203,166,247,0.28)}
+  header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.2px}
+  .top-actions{margin-inline-start:auto;display:flex;align-items:center;gap:8px}
+  .storage-info{font-size:11px;color:var(--muted);font-family:"JetBrains Mono",monospace;
+    padding:4px 10px;border-radius:20px;background:rgba(255,255,255,0.03);border:1px solid var(--border)}
+
+  /* ===== التبويبات ===== */
+  nav.tabs{position:relative;z-index:2;display:flex;gap:4px;padding:8px 14px;
+    overflow-x:auto;border-bottom:1px solid var(--border);background:rgba(14,18,25,0.4)}
+  nav.tabs::-webkit-scrollbar{height:0}
+  .tab{display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;
+    border:1px solid transparent;background:transparent;color:var(--text-dim);
+    font:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;transition:all .2s}
+  .tab:hover{background:rgba(255,255,255,0.04);color:var(--text)}
+  .tab.active{background:var(--tab-soft);border-color:var(--tab-border);color:var(--text)}
+  .tab-icon{font-size:16px}
+  .tab-count{font-size:11px;padding:1px 7px;border-radius:20px;
+    background:rgba(255,255,255,0.06);color:var(--muted);font-family:"JetBrains Mono",monospace}
+  .tab.active .tab-count{background:var(--tab-soft2);color:var(--tab-color)}
+
+  /* ===== التخطيط ===== */
+  .app{position:relative;z-index:1;flex:1;min-height:0;display:grid;
+    grid-template-columns:300px 1fr;gap:14px;padding:14px}
+  .sidebar,.main{background:var(--panel);
+    backdrop-filter:blur(18px) saturate(120%);-webkit-backdrop-filter:blur(18px) saturate(120%);
+    border:1px solid var(--border);border-radius:var(--radius);min-height:0;
+    display:flex;flex-direction:column;overflow:hidden;
+    box-shadow:0 20px 60px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.03)}
+
+  /* ===== الشريط الجانبي ===== */
+  .side-search{padding:12px;border-bottom:1px solid var(--border)}
+  .side-search input{width:100%;border:1px solid var(--border);border-radius:10px;
+    padding:9px 12px;font:inherit;font-size:13px;outline:none;
+    background:rgba(255,255,255,0.03);color:var(--text);transition:all .2s}
+  .side-search input::placeholder{color:var(--muted)}
+  .side-search input:focus{border-color:rgba(203,166,247,0.5);background:rgba(255,255,255,0.05);
+    box-shadow:0 0 0 3px rgba(203,166,247,0.1)}
+  .side-add{padding:10px 12px}
+  .side-add .btn{width:100%;justify-content:center}
+  .cats{padding:8px 12px;border-bottom:1px solid var(--border);
+    display:flex;flex-wrap:wrap;gap:6px;max-height:150px;overflow-y:auto}
+  .cat{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:20px;
+    font-size:12px;border:1px solid var(--border);background:rgba(255,255,255,0.03);
+    cursor:pointer;color:var(--text-dim);transition:all .18s;font:inherit;font-size:12px}
+  .cat:hover{background:rgba(255,255,255,0.06);color:var(--text)}
+  .cat.active{background:var(--cat-soft,var(--tab-soft,rgba(203,166,247,0.15)));
+    border-color:var(--cat-border,var(--tab-border,rgba(203,166,247,0.35)));
+    color:var(--cat-color,var(--accent))}
+  .cat-count{font-size:10px;opacity:.7;font-family:"JetBrains Mono",monospace}
+  .cat-x{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;
+    font-size:11px;line-height:1;opacity:0;transition:opacity .15s;
+    background:rgba(255,255,255,0.1);margin-inline-start:2px}
+  .cat:hover .cat-x{opacity:.7}
+  .cat-x:hover{opacity:1;background:var(--red);color:#fff}
+  .add-cat{padding:5px 11px;font-weight:700;font-size:14px;color:var(--muted)}
+  .add-cat:hover{color:var(--accent);border-color:rgba(203,166,247,0.4)}
+
+  .list{list-style:none;margin:0;padding:8px;overflow-y:auto;flex:1}
+  .item{position:relative;display:flex;align-items:center;gap:10px;
+    padding-block:10px;padding-inline:16px 12px;border-radius:10px;cursor:pointer;
+    border:1px solid transparent;margin-bottom:4px;transition:background .2s,border-color .2s;
+    animation:fadeIn .35s ease backwards}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+  .item::before{content:"";position:absolute;top:50%;inset-inline-start:0;width:3px;height:60%;
+    transform:translateY(-50%) scaleY(0);background:var(--item-color,var(--accent));border-radius:3px;
+    transition:transform .28s cubic-bezier(.4,0,.2,1),height .28s ease;
+    box-shadow:0 0 12px var(--item-color,var(--accent))}
+  .item:hover{background:rgba(255,255,255,0.03)}
+  .item:hover::before{transform:translateY(-50%) scaleY(1)}
+  .item.active{background:linear-gradient(90deg,var(--item-soft),rgba(255,255,255,0.02));
+    border-color:var(--item-border)}
+  .item.active::before{transform:translateY(-50%) scaleY(1);height:70%}
+  .item-thumb{width:36px;height:36px;border-radius:8px;flex-shrink:0;
+    background:rgba(255,255,255,0.05) center/cover no-repeat;border:1px solid var(--border)}
+  .item-body{flex:1;min-width:0}
+  .item-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .item-date{font-size:11px;color:var(--muted);margin-top:2px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .empty{padding:24px 10px;text-align:center;color:var(--muted);font-size:12.5px}
+
+  /* ===== الأزرار ===== */
+  .btn{font:inherit;font-size:13px;font-weight:500;padding:8px 14px;border-radius:10px;
+    border:1px solid var(--border-strong);background:rgba(255,255,255,0.04);
+    color:var(--text);cursor:pointer;white-space:nowrap;transition:all .2s;
+    display:inline-flex;align-items:center;gap:6px}
+  .btn:hover{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.16);transform:translateY(-1px)}
+  .btn:active{transform:translateY(0)}
+  .btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    border-color:transparent;color:#0a0d13;font-weight:600;
+    box-shadow:0 4px 18px rgba(203,166,247,0.3)}
+  .btn.primary:hover{box-shadow:0 6px 24px rgba(203,166,247,0.45);transform:translateY(-2px)}
+  .btn.danger{color:var(--red)}
+  .btn.danger:hover{background:rgba(243,139,168,0.1);border-color:rgba(243,139,168,0.3)}
+  .btn.small{padding:6px 10px;font-size:12px}
+
+  /* ===== المحتوى الرئيسي ===== */
+  .main{overflow:hidden}
+  .toolbar{display:flex;align-items:center;gap:8px;padding:10px 12px;
+    border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .title-input{flex:1;min-width:130px;border:none;background:transparent;
+    font:inherit;font-size:15px;font-weight:600;padding:7px 10px;outline:none;
+    color:var(--text);border-radius:8px;transition:background .2s}
+  .title-input::placeholder{color:var(--muted)}
+  .title-input:focus{background:rgba(255,255,255,0.04)}
+  .status{font-size:12px;color:var(--green);opacity:0;transition:opacity .3s;
+    display:inline-flex;align-items:center;gap:5px}
+  .status.show{opacity:1}
+  .status::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 8px var(--green)}
+
+  /* محرر الكود */
+  .panes{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr}
+  .pane{display:flex;flex-direction:column;min-width:0;min-height:0}
+  .pane+.pane{border-inline-start:1px solid var(--border)}
+  .pane-head{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;
+    letter-spacing:.4px;color:var(--muted);padding:9px 14px;border-bottom:1px solid var(--border);
+    background:rgba(255,255,255,0.015)}
+  .pane-head .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+  .pane-head .dot.green{background:var(--green);box-shadow:0 0 8px var(--green)}
+  .pane-head .muted{margin-inline-start:auto;font-weight:400;letter-spacing:0;
+    text-transform:none;font-size:11px;font-family:"JetBrains Mono",monospace}
+  .editor-wrap{position:relative;flex:1;min-height:0;overflow:hidden;background:rgba(10,13,19,0.4)}
+  .editor-wrap pre,.editor-wrap textarea{position:absolute;inset:0;margin:0;padding:16px 18px;
+    font-family:"JetBrains Mono","Cascadia Code",Consolas,"Courier New",monospace;
+    font-size:13.5px;line-height:1.75;white-space:pre;overflow:auto;tab-size:2;
+    border:none;outline:none;direction:ltr;text-align:left;letter-spacing:0}
+  .editor-wrap pre{pointer-events:none;z-index:0;color:var(--text);scrollbar-width:none}
+  .editor-wrap pre::-webkit-scrollbar{display:none}
+  .editor-wrap textarea{background:transparent;color:transparent;caret-color:var(--accent);
+    resize:none;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.1) transparent}
+  .editor-wrap textarea::selection{background:rgba(137,180,250,0.28);color:transparent}
+  .tk-comment{color:#6c7086;font-style:italic}
+  .tk-doctype{color:#8b8fa8}
+  .tk-bracket{color:#7f849c}
+  .tk-tag{color:#89b4fa}
+  .tk-attr{color:#f9e2af}
+  .tk-eq{color:#7f849c}
+  .tk-str{color:#a6e3a1}
+  .tk-text{color:#cdd6f4}
+  #previewFrame{flex:1;border:none;width:100%;background:#e8ecf1;display:block}
+
+  /* الحالة الفارغة */
+  .empty-main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:10px;padding:40px;text-align:center;color:var(--muted)}
+  .empty-icon{font-size:52px;opacity:.6}
+  .empty-main h3{margin:0;font-size:17px;color:var(--text);font-weight:600}
+  .empty-main p{margin:0;font-size:13px;max-width:340px;line-height:1.7}
+
+  /* منطقة رفع الملفات */
+  .dropzone{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:12px;margin:20px;padding:40px;border:2px dashed var(--border-strong);border-radius:18px;
+    background:rgba(255,255,255,0.015);cursor:pointer;transition:all .25s;text-align:center}
+  .dropzone:hover,.dropzone.over{border-color:var(--mod-color,var(--accent));
+    background:rgba(255,255,255,0.03);transform:scale(1.005)}
+  .dropzone.over{box-shadow:0 0 0 4px rgba(203,166,247,0.1)}
+  .dz-icon{font-size:52px;opacity:.8}
+  .dropzone h3{margin:0;font-size:16px;font-weight:600;color:var(--text)}
+  .dropzone p{margin:0;font-size:13px;color:var(--muted)}
+
+  /* تفاصيل عنصر */
+  .detail{flex:1;display:flex;flex-direction:column;min-height:0}
+  .detail-head{display:flex;align-items:center;gap:14px;padding:18px;border-bottom:1px solid var(--border)}
+  .detail-icon{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;
+    font-size:24px;background:rgba(255,255,255,0.04);border:1px solid var(--border);flex-shrink:0}
+  .detail-title-wrap{flex:1;min-width:0}
+  .detail-title-wrap .title-input{padding:0;font-size:16px;width:100%}
+  .detail-meta{font-size:12px;color:var(--muted);margin-top:4px;
+    font-family:"JetBrains Mono",monospace;direction:ltr;text-align:right}
+  .detail-actions{display:flex;gap:8px}
+  .detail-body{flex:1;min-height:0;overflow:auto;padding:20px;display:flex;align-items:center;justify-content:center}
+  .preview-img{max-width:100%;max-height:100%;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.4)}
+  .preview-text{width:100%;max-height:100%;margin:0;padding:16px;border-radius:12px;
+    background:rgba(10,13,19,0.6);border:1px solid var(--border);overflow:auto;
+    font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.6;
+    direction:ltr;text-align:left;color:var(--text);white-space:pre-wrap;word-break:break-all}
+  .preview-pdf{width:100%;height:100%;border:none;border-radius:12px;background:#fff}
+  .detail-body .muted{font-size:13px}
+
+  /* نماذج */
+  .form-view{flex:1;display:flex;flex-direction:column;min-height:0;overflow:auto}
+  .form-head{display:flex;align-items:center;gap:12px;padding:16px 20px;
+    border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--panel);
+    backdrop-filter:blur(12px);z-index:2}
+  .form-head h3{margin:0;font-size:16px;font-weight:600;flex:1}
+  .form-body{padding:20px;display:flex;flex-direction:column;gap:14px;max-width:640px;width:100%}
+  .form-body label{display:flex;flex-direction:column;gap:6px;font-size:12px;
+    font-weight:600;color:var(--text-dim)}
+  .form-body input,.form-body textarea,.form-body select{
+    font:inherit;font-size:14px;padding:10px 13px;border-radius:10px;
+    border:1px solid var(--border);background:rgba(255,255,255,0.03);
+    color:var(--text);outline:none;transition:all .2s;font-weight:400}
+  .form-body input:focus,.form-body textarea:focus,.form-body select:focus{
+    border-color:rgba(203,166,247,0.5);background:rgba(255,255,255,0.05);
+    box-shadow:0 0 0 3px rgba(203,166,247,0.1)}
+  .form-body textarea{resize:vertical;min-height:80px;line-height:1.6}
+  .form-body select{cursor:pointer}
+  .form-body select option{background:var(--panel-solid);color:var(--text)}
+  .pw-wrap{position:relative;display:flex;gap:6px}
+  .pw-wrap input{flex:1}
+  .eye{width:38px;border-radius:10px;border:1px solid var(--border);
+    background:rgba(255,255,255,0.03);color:var(--text);cursor:pointer;
+    font-size:15px;transition:all .2s;flex-shrink:0}
+  .eye:hover{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.16)}
+
+  .warning{margin:0 20px 20px;padding:12px 16px;border-radius:10px;
+    background:rgba(249,226,175,0.08);border:1px solid rgba(249,226,175,0.2);
+    color:var(--yellow);font-size:12.5px;line-height:1.6}
+
+  /* المودال */
+  .modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.7);
+    backdrop-filter:blur(6px);display:grid;place-items:center;padding:20px;
+    animation:fadeIn .2s ease}
+  .modal[hidden]{display:none}
+  .modal-box{position:relative;max-width:90vw;max-height:90vh;
+    background:var(--panel-solid);border:1px solid var(--border-strong);
+    border-radius:16px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,0.6);
+    animation:popIn .25s cubic-bezier(.4,0,.2,1)}
+  @keyframes popIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+  .modal-img{display:block;max-width:80vw;max-height:70vh;object-fit:contain}
+  .modal-info{padding:14px 18px;border-top:1px solid var(--border)}
+  .modal-info h3{margin:0 0 4px;font-size:15px}
+  .modal-info p{margin:0;font-size:12px;color:var(--muted);font-family:"JetBrains Mono",monospace}
+  .modal-close{position:absolute;top:10px;inset-inline-end:10px;width:34px;height:34px;
+    border-radius:50%;border:none;background:rgba(0,0,0,0.6);color:#fff;
+    font-size:20px;cursor:pointer;line-height:1;display:grid;place-items:center;
+    transition:background .2s}
+  .modal-close:hover{background:rgba(0,0,0,0.85)}
+
+  /* التوست */
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);
+    z-index:200;padding:12px 22px;border-radius:12px;
+    background:var(--panel-solid);border:1px solid var(--border-strong);
+    color:var(--text);font-size:13px;font-weight:500;
+    box-shadow:0 12px 40px rgba(0,0,0,0.5);
+    transition:transform .35s cubic-bezier(.4,0,.2,1),opacity .35s;opacity:0;pointer-events:none;
+    display:flex;align-items:center;gap:8px}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+  .toast::before{content:"✓";color:var(--green);font-weight:700;font-size:15px}
+
+  /* شريط التمرير */
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:8px;
+    border:3px solid transparent;background-clip:padding-box}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.15);
+    background-clip:padding-box;border:3px solid transparent}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  /* جوال */
+  @media (max-width:880px){
+    .app{grid-template-columns:1fr;grid-template-rows:auto 1fr;padding:10px;gap:10px}
+    .sidebar{max-height:230px}
+    .panes{grid-template-columns:1fr;grid-template-rows:1fr 1fr}
+    .pane+.pane{border-inline-start:none;border-top:1px solid var(--border)}
+    .storage-info{display:none}
+    .detail-head{flex-wrap:wrap}
+  }
+</style>
+</head>
+<body>
+
+<div class="atmosphere" aria-hidden="true">
+  <div class="glow glow-1"></div><div class="glow glow-2"></div><div class="glow glow-3"></div>
+  <div class="grid-overlay"></div><div id="floaters"></div>
+</div>
+
+<header class="top">
+  <div class="logo">&lt;/&gt;</div>
+  <h1>مخزن المشاريع الذكي</h1>
+  <div class="top-actions">
+    <span id="storageInfo" class="storage-info">—</span>
+    <button id="exportBtn" class="btn small">تصدير الكل</button>
+    <button id="importBtn" class="btn small">استيراد</button>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs"></nav>
+
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main" id="main"></main>
+</div>
+
+<div class="modal" id="modal" hidden></div>
+<div class="toast" id="toast"></div>
+
+<input type="file" id="importInput" accept=".json,application/json" hidden>
+<input type="file" id="filePicker" multiple hidden>
+<input type="file" id="imagePicker" accept="image/*" multiple hidden>
+
+<script>
+(function () {
+'use strict';
+
+/* ============================================================
+   الثوابت والإعدادات
+   ============================================================ */
+const DB_NAME = 'project-vault-db';
+const DB_VERSION = 1;
+const STATE_KEY = 'state';
+
+const MODULES = {
+  code:      { name:'الأكواد',      icon:'📝', color:'#cba6f7', addLabel:'كود جديد',           defaultCats:['HTML','CSS','JS','VS'] },
+  files:     { name:'الملفات',      icon:'📁', color:'#89b4fa', addLabel:'رفع ملف',             defaultCats:['مستندات','خطوط','مشاريع'] },
+  images:    { name:'الصور',        icon:'🖼️', color:'#a6e3a1', addLabel:'رفع صورة',            defaultCats:['أيقونات','خلفيات','لقطات'] },
+  passwords: { name:'كلمات المرور', icon:'🔐', color:'#fab387', addLabel:'كلمة مرور جديدة',     defaultCats:['شخصي','عمل','تواصل'] },
+  emails:    { name:'الإيميلات',    icon:'📧', color:'#f5c2e7', addLabel:'إيميل جديد',          defaultCats:['شخصي','عمل','Gmail'] },
+  notes:     { name:'الملاحظات',    icon:'📌', color:'#94e2d5', addLabel:'ملاحظة جديدة',        defaultCats:['أفكار','مهام','مهم'] }
+};
+
+const CAT_COLORS = ['#cba6f7','#89b4fa','#a6e3a1','#fab387','#f5c2e7','#94e2d5','#f9e2af','#f38ba8'];
+
+const SAMPLE_CODE = `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>تجربة</title>
+  <style>
+    body{
+      margin:0;height:100vh;display:grid;place-items:center;
+      font-family:system-ui,sans-serif;
+      background:linear-gradient(135deg,#1e1e2e,#313244);
+      color:#cdd6f4;
+    }
+    .card{
+      background:#181825;padding:34px 44px;border-radius:18px;text-align:center;
+      box-shadow:0 12px 34px rgba(0,0,0,0.4);
+      border:1px solid rgba(255,255,255,0.06);
+    }
+    h1{margin:0 0 6px;font-size:20px;color:#cba6f7}
+    p{margin:0;color:#a6adc8;font-size:14px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>مرحبًا بك 👋</h1>
+    <p>عدّل الكود ثم اضغط تشغيل</p>
+  </div>
+</body>
+</html>`;
+
+const EMPTY_PREVIEW = '<!DOCTYPE html><html><body style="margin:0;height:100vh;display:grid;place-items:center;font-family:system-ui;color:#6c7086;background:#e8ecf1">لا يوجد كود</body></html>';
+
+/* ============================================================
+   أدوات مساعدة
+   ============================================================ */
+const $ = (id) => document.getElementById(id);
+const uid = () => 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+function hexA(hex, a) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+}
+
+function formatBytes(bytes) {
+  if (!bytes) return '0 B';
+  const units = ['B','KB','MB','GB'];
+  let i = 0, n = bytes;
+  while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+  return n.toFixed(n < 10 && i > 0 ? 1 : 0) + ' ' + units[i];
+}
+
+function formatDate(ts) {
+  if (!ts) return '';
+  return new Date(ts).toLocaleDateString('ar-EG', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+async function copyText(text, label) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('تم النسخ: ' + (label || ''));
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('تم النسخ'); } catch (err) { alert('تعذر النسخ'); }
+    ta.remove();
+  }
+}
+
+/* ============================================================
+   IndexedDB
+   ============================================================ */
+const idb = {
+  db: null,
+  open() {
+    return new Promise((res, rej) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');
+      };
+      req.onsuccess = () => { this.db = req.result; res(); };
+      req.onerror = () => rej(req.error);
+    });
+  },
+  get(key) {
+    return new Promise((res, rej) => {
+      const req = this.db.transaction('kv','readonly').objectStore('kv').get(key);
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+    });
+  },
+  set(key, val) {
+    return new Promise((res, rej) => {
+      const req = this.db.transaction('kv','readwrite').objectStore('kv').put(val, key);
+      req.onsuccess = () => res();
+      req.onerror = () => rej(req.error);
+    });
+  },
+  del(key) {
+    return new Promise((res, rej) => {
+      const req = this.db.transaction('kv','readwrite').objectStore('kv').delete(key);
+      req.onsuccess = () => res();
+      req.onerror = () => rej(req.error);
+    });
+  }
+};
+
+/* كاش روابط البلوب */
+const blobUrlCache = new Map();
+async function getBlobUrl(id) {
+  if (blobUrlCache.has(id)) return blobUrlCache.get(id);
+  const blob = await idb.get('blob_' + id);
+  if (!blob) return null;
+  const url = URL.createObjectURL(blob);
+  blobUrlCache.set(id, url);
+  return url;
+}
+function revokeBlob(id) {
+  if (blobUrlCache.has(id)) {
+    URL.revokeObjectURL(blobUrlCache.get(id));
+    blobUrlCache.delete(id);
+  }
+}
+
+/* ============================================================
+   الحالة
+   ============================================================ */
+let state = null;
+let searchTerm = '';
+let persistTimer = null;
+
+function defaultState() {
+  const s = { activeModule: 'code', modules: {} };
+  for (const [id, m] of Object.entries(MODULES)) {
+    s.modules[id] = {
+      activeCategory: 'all',
+      activeItemId: null,
+      categories: m.defaultCats.map((name, i) => ({
+        id: uid(), name, color: CAT_COLORS[i % CAT_COLORS.length]
+      })),
+      items: []
+    };
+  }
+  const now = Date.now();
+  s.modules.code.items.push({
+    id: uid(), title: 'كود ترحيبي', content: SAMPLE_CODE,
+    categoryId: null, updatedAt: now
+  });
+  s.modules.notes.items.push({
+    id: uid(), title: 'ملاحظة ترحيبية',
+    content: 'مرحبًا بك في مخزن المشاريع الذكي! 🎉\n\nهنا يمكنك تنظيم:\n• الأكواد (HTML / CSS / JS)\n• الملفات بأي نوع\n• الصور\n• كلمات المرور\n• الإيميلات\n• الملاحظات\n\nكل قسم يحتوي على تصنيفات خاصة به.',
+    categoryId: null, updatedAt: now
+  });
+  return s;
+}
+
+function persistNow() {
+  clearTimeout(persistTimer);
+  return idb.set(STATE_KEY, state).catch(e => console.error('فشل الحفظ', e));
+}
+function persistSoon() {
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(persistNow, 450);
+}
+
+/* ============================================================
+   تلوين كود HTML
+   ============================================================ */
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function tokenizeHTML(code) {
+  const tokens = [];
+  let i = 0, len = code.length;
+  while (i < len) {
+    if (code.startsWith('<!--', i)) {
+      const end = code.indexOf('-->', i + 4);
+      const stop = end === -1 ? len : end + 3;
+      tokens.push(['comment', code.slice(i, stop)]); i = stop; continue;
+    }
+    if (code[i] === '<' && code[i+1] === '!') {
+      const end = code.indexOf('>', i);
+      const stop = end === -1 ? len : end + 1;
+      tokens.push(['doctype', code.slice(i, stop)]); i = stop; continue;
+    }
+    if (code[i] === '<' && (code[i+1] === '/' || /[a-zA-Z]/.test(code[i+1] || ''))) {
+      let j = i + 1;
+      if (code[j] === '/') j++;
+      const nameStart = j;
+      while (j < len && /[a-zA-Z0-9:-]/.test(code[j])) j++;
+      const tagName = code.slice(nameStart, j);
+      if (!tagName) { tokens.push(['text', '<']); i++; continue; }
+      tokens.push(['bracket', code.slice(i, nameStart)]);
+      tokens.push(['tag', tagName]);
+      while (j < len) {
+        const c = code[j];
+        if (c === '>') { tokens.push(['bracket', '>']); j++; break; }
+        if (c === '/') { tokens.push(['bracket', '/']); j++; continue; }
+        if (/\s/.test(c)) {
+          let s = j; while (j < len && /\s/.test(code[j])) j++;
+          tokens.push(['text', code.slice(s, j)]); continue;
+        }
+        if (/[a-zA-Z_:@\-]/.test(c)) {
+          let s = j; while (j < len && /[a-zA-Z0-9_:@\-]/.test(code[j])) j++;
+          tokens.push(['attr', code.slice(s, j)]); continue;
+        }
+        if (c === '=') { tokens.push(['eq', '=']); j++; continue; }
+        if (c === '"' || c === "'") {
+          let s = j; j++;
+          while (j < len && code[j] !== c) j++;
+          if (j < len) j++;
+          tokens.push(['str', code.slice(s, j)]); continue;
+        }
+        tokens.push(['text', c]); j++;
+      }
+      i = j; continue;
+    }
+    let s = i;
+    while (i < len && code[i] !== '<') i++;
+    if (i === s) i++;
+    tokens.push(['text', code.slice(s, i)]);
+  }
+  return tokens;
+}
+
+function renderHighlight(code) {
+  let out = '';
+  for (const [type, text] of tokenizeHTML(code || '')) {
+    if (type === 'text') out += esc(text);
+    else out += '<span class="tk-' + type + '">' + esc(text) + '</span>';
+  }
+  return out + '\n';
+}
+
+/* ============================================================
+   تصنيفات مساعدة
+   ============================================================ */
+function activeModule() { return state.activeModule; }
+function activeMod() { return state.modules[state.activeModule]; }
+function activeModuleMeta() { return MODULES[state.activeModule]; }
+
+function getFilteredItems() {
+  const mod = activeMod();
+  const q = searchTerm.trim().toLowerCase();
+  return mod.items.filter(it => {
+    if (mod.activeCategory !== 'all' && it.categoryId !== mod.activeCategory) return false;
+    if (!q) return true;
+    const hay = [it.title, it.username, it.email, it.provider, it.url, it.notes, it.content, it.filename]
+      .filter(Boolean).join(' ').toLowerCase();
+    return hay.includes(q);
+  }).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+}
+
+function getActiveItem() {
+  const mod = activeMod();
+  return mod.items.find(it => it.id === mod.activeItemId) || null;
+}
+
+/* ============================================================
+   رسم التبويبات
+   ============================================================ */
+function renderTabs() {
+  const nav = $('tabs');
+  nav.innerHTML = '';
+  for (const [id, m] of Object.entries(MODULES)) {
+    const mod = state.modules[id];
+    const btn = document.createElement('button');
+    btn.className = 'tab' + (state.activeModule === id ? ' active' : '');
+    btn.style.setProperty('--tab-color', m.color);
+    btn.style.setProperty('--tab-soft', hexA(m.color, 0.12));
+    btn.style.setProperty('--tab-border', hexA(m.color, 0.32));
+    btn.style.setProperty('--tab-soft2', hexA(m.color, 0.2));
+    btn.innerHTML = '<span class="tab-icon">' + m.icon + '</span><span>' + m.name + '</span>' +
+      (mod.items.length ? '<span class="tab-count">' + mod.items.length + '</span>' : '');
+    btn.onclick = () => switchModule(id);
+    nav.appendChild(btn);
+  }
+}
+
+/* ============================================================
+   الشريط الجانبي
+   ============================================================ */
+function renderSidebar() {
+  const side = $('sidebar');
+  const m = activeModuleMeta();
+  side.style.setProperty('--mod-color', m.color);
+  side.innerHTML = '';
+
+  const searchWrap = document.createElement('div');
+  searchWrap.className = 'side-search';
+  const input = document.createElement('input');
+  input.type = 'search';
+  input.id = 'searchInput';
+  input.placeholder = 'بحث في ' + m.name + '...';
+  input.value = searchTerm;
+  input.oninput = (e) => { searchTerm = e.target.value; renderList(); };
+  searchWrap.appendChild(input);
+  side.appendChild(searchWrap);
+
+  const addWrap = document.createElement('div');
+  addWrap.className = 'side-add';
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn primary';
+  addBtn.textContent = '+ ' + m.addLabel;
+  addBtn.onclick = addNewItem;
+  addWrap.appendChild(addBtn);
+  side.appendChild(addWrap);
+
+  const cats = document.createElement('div');
+  cats.className = 'cats';
+  cats.id = 'cats';
+  side.appendChild(cats);
+
+  const list = document.createElement('ul');
+  list.className = 'list';
+  list.id = 'list';
+  side.appendChild(list);
+
+  renderCats();
+  renderList();
+}
+
+function makeCatChip(id, name, color, count, deletable) {
+  const btn = document.createElement('button');
+  btn.className = 'cat' + (activeMod().activeCategory === id ? ' active' : '');
+  if (color) {
+    btn.style.setProperty('--cat-color', color);
+    btn.style.setProperty('--cat-soft', hexA(color, 0.16));
+    btn.style.setProperty('--cat-border', hexA(color, 0.38));
+  }
+  btn.innerHTML = '<span>' + escapeHtml(name) + '</span><span class="cat-count">' + count + '</span>';
+  if (deletable) {
+    const x = document.createElement('span');
+    x.className = 'cat-x';
+    x.textContent = '×';
+    x.title = 'حذف القسم';
+    x.onclick = (e) => { e.stopPropagation(); deleteCategory(id); };
+    btn.appendChild(x);
+  }
+  btn.onclick = () => {
+    activeMod().activeCategory = id;
+    renderCats();
+    renderList();
+  };
+  return btn;
+}
+
+function renderCats() {
+  const cats = $('cats');
+  if (!cats) return;
+  const mod = activeMod();
+  const m = activeModuleMeta();
+  cats.innerHTML = '';
+
+  cats.appendChild(makeCatChip('all', 'الكل', m.color, mod.items.length, false));
+  for (const cat of mod.categories) {
+    const count = mod.items.filter(it => it.categoryId === cat.id).length;
+    cats.appendChild(makeCatChip(cat.id, cat.name, cat.color, count, true));
+  }
+  const addCat = document.createElement('button');
+  addCat.className = 'cat add-cat';
+  addCat.textContent = '+';
+  addCat.title = 'قسم جديد';
+  addCat.onclick = addCategory;
+  cats.appendChild(addCat);
+}
+
+async function renderList() {
+  const list = $('list');
+  if (!list) return;
+  const mod = activeMod();
+  const m = activeModuleMeta();
+  list.innerHTML = '';
+
+  const items = getFilteredItems();
+  if (!items.length) {
+    const li = document.createElement('li');
+    li.className = 'empty';
+    li.textContent = searchTerm ? 'لا توجد نتائج' : 'لا توجد عناصر بعد';
+    list.appendChild(li);
+    return;
+  }
+
+  const moduleId = state.activeModule;
+
+  for (const it of items) {
+    const cat = mod.categories.find(c => c.id === it.categoryId);
+    const color = cat ? cat.color : m.color;
+    const li = document.createElement('li');
+    li.className = 'item' + (it.id === mod.activeItemId ? ' active' : '');
+    li.style.setProperty('--item-color', color);
+    li.style.setProperty('--item-soft', hexA(color, 0.12));
+    li.style.setProperty('--item-border', hexA(color, 0.28));
+
+    if (moduleId === 'images') {
+      const thumb = document.createElement('div');
+      thumb.className = 'item-thumb';
+      li.appendChild(thumb);
+      getBlobUrl(it.id).then(url => {
+        if (url) thumb.style.backgroundImage = 'url("' + url + '")';
+      });
+    }
+
+    const body = document.createElement('div');
+    body.className = 'item-body';
+
+    let sub = '';
+    if (moduleId === 'files' || moduleId === 'images') sub = formatBytes(it.size);
+    else if (moduleId === 'passwords') sub = it.username || formatDate(it.updatedAt);
+    else if (moduleId === 'emails') sub = it.email || formatDate(it.updatedAt);
+    else sub = formatDate(it.updatedAt);
+
+    body.innerHTML =
+      '<div class="item-title">' + escapeHtml(it.title || 'بدون عنوان') + '</div>' +
+      '<div class="item-date">' + escapeHtml(sub) + '</div>';
+    li.appendChild(body);
+
+    li.onclick = () => {
+      mod.activeItemId = it.id;
+      renderList();
+      renderMain();
+    };
+    list.appendChild(li);
+  }
+}
+
+/* ============================================================
+   التبديل بين الوحدات
+   ============================================================ */
+function switchModule(id) {
+  if (state.activeModule === id) return;
+  state.activeModule = id;
+  searchTerm = '';
+  persistSoon();
+  render();
+}
+
+/* ============================================================
+   المحتوى الرئيسي
+   ============================================================ */
+async function renderMain() {
+  const main = $('main');
+  const moduleId = state.activeModule;
+  const m = MODULES[moduleId];
+  main.innerHTML = '';
+  main.style.setProperty('--mod-color', m.color);
+  main.style.setProperty('--mod-soft', hexA(m.color, 0.15));
+
+  const item = getActiveItem();
+
+  switch (moduleId) {
+    case 'code':      renderCodeMain(main, item); break;
+    case 'files':     await renderFilesMain(main, item); break;
+    case 'images':    await renderImagesMain(main, item); break;
+    case 'passwords': renderPasswordsMain(main, item); break;
+    case 'emails':    renderEmailsMain(main, item); break;
+    case 'notes':     renderNotesMain(main, item); break;
+  }
+}
+
+/* ============================================================
+   وحدة الأكواد
+   ============================================================ */
+function renderCodeMain(main, item) {
+  if (!item) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-main';
+    empty.innerHTML = '<div class="empty-icon">📝</div><h3>لا يوجد كود محدد</h3>' +
+      '<p>اختر كوداً من القائمة أو أنشئ كوداً جديداً</p>';
+    const btn = document.createElement('button');
+    btn.className = 'btn primary';
+    btn.textContent = '+ كود جديد';
+    btn.onclick = addNewItem;
+    empty.appendChild(btn);
+    main.appendChild(empty);
+    return;
+  }
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'toolbar';
+  toolbar.innerHTML =
+    '<input class="title-input" id="itemTitle" placeholder="اسم الكود" value="' + escapeAttr(item.title) + '">' +
+    '<span class="status" id="status"></span>' +
+    '<button class="btn" id="dupBtn">نسخ</button>' +
+    '<button class="btn danger" id="delBtn">حذف</button>' +
+    '<button class="btn" id="saveBtn">حفظ</button>' +
+    '<button class="btn primary" id="runBtn">▶ تشغيل</button>';
+  main.appendChild(toolbar);
+
+  const panes = document.createElement('div');
+  panes.className = 'panes';
+  panes.innerHTML =
+    '<section class="pane">' +
+      '<div class="pane-head"><span class="dot"></span>الكود <span id="charCount" class="muted"></span></div>' +
+      '<div class="editor-wrap"><pre id="highlight" aria-hidden="true"></pre>' +
+      '<textarea id="codeArea" spellcheck="false"></textarea></div>' +
+    '</section>' +
+    '<section class="pane">' +
+      '<div class="pane-head"><span class="dot green"></span>المعاينة</div>' +
+      '<iframe id="previewFrame" sandbox="allow-scripts allow-modals allow-forms allow-popups"></iframe>' +
+    '</section>';
+  main.appendChild(panes);
+
+  const textarea = main.querySelector('#codeArea');
+  const pre = main.querySelector('#highlight');
+  const iframe = main.querySelector('#previewFrame');
+  const charCount = main.querySelector('#charCount');
+  const titleInput = main.querySelector('#itemTitle');
+  const status = main.querySelector('#status');
+
+  textarea.value = item.content || '';
+  iframe.srcdoc = item.content || EMPTY_PREVIEW;
+
+  let flashTimer;
+  function flash(msg) {
+    status.textContent = msg;
+    status.classList.add('show');
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => status.classList.remove('show'), 1500);
+  }
+
+  function updateHighlight() {
+    pre.innerHTML = renderHighlight(textarea.value);
+    pre.scrollTop = textarea.scrollTop;
+    pre.scrollLeft = textarea.scrollLeft;
+    charCount.textContent = textarea.value.length + ' حرف';
+  }
+  updateHighlight();
+
+  textarea.addEventListener('scroll', () => {
+    pre.scrollTop = textarea.scrollTop;
+    pre.scrollLeft = textarea.scrollLeft;
+  });
+
+  let saveTimer, runTimer;
+  function saveNow() {
+    clearTimeout(saveTimer);
+    item.content = textarea.value;
+    item.title = titleInput.value.trim() || 'بدون عنوان';
+    item.updatedAt = Date.now();
+    persistSoon();
+    renderList();
+  }
+
+  textarea.addEventListener('input', () => {
+    updateHighlight();
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 500);
+    clearTimeout(runTimer);
+    runTimer = setTimeout(() => { iframe.srcdoc = textarea.value || EMPTY_PREVIEW; }, 900);
+  });
+  titleInput.addEventListener('input', () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 500);
+  });
+
+  main.querySelector('#saveBtn').onclick = () => { saveNow(); flash('تم الحفظ ✓'); };
+  main.querySelector('#runBtn').onclick = () => { iframe.srcdoc = textarea.value || EMPTY_PREVIEW; flash('تم التشغيل'); };
+  main.querySelector('#delBtn').onclick = () => deleteActiveItem();
+  main.querySelector('#dupBtn').onclick = () => {
+    saveNow();
+    const copy = {
+      id: uid(), title: (item.title || 'بدون عنوان') + ' (نسخة)',
+      content: item.content, categoryId: item.categoryId, updatedAt: Date.now()
+    };
+    activeMod().items.unshift(copy);
+    activeMod().activeItemId = copy.id;
+    persistNow();
+    render();
+    toast('تم النسخ');
+  };
+}
+
+/* ============================================================
+   وحدة الملفات
+   ============================================================ */
+async function renderFilesMain(main, item) {
+  if (!item) {
+    const drop = document.createElement('div');
+    drop.className = 'dropzone';
+    drop.innerHTML =
+      '<div class="dz-icon">📁</div>' +
+      '<h3>اسحب الملفات هنا أو اضغط للرفع</h3>' +
+      '<p>يمكنك رفع أي نوع من الملفات — تُحفظ محليًا في متصفحك</p>';
+    const btn = document.createElement('button');
+    btn.className = 'btn primary';
+    btn.textContent = 'رفع ملفات';
+    btn.onclick = (e) => { e.stopPropagation(); $('filePicker').click(); };
+    drop.appendChild(btn);
+    main.appendChild(drop);
+
+    drop.addEventListener('click', () => $('filePicker').click());
+    drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+    drop.addEventListener('drop', async e => {
+      e.preventDefault();
+      drop.classList.remove('over');
+      const files = Array.from(e.dataTransfer.files || []);
+      if (files.length) await handleUpload(files, 'files');
+    });
+    return;
+  }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'detail';
+  wrap.innerHTML =
+    '<div class="detail-head">' +
+      '<div class="detail-icon">' + fileIcon(item.mime) + '</div>' +
+      '<div class="detail-title-wrap">' +
+        '<input class="title-input" id="itemTitle" value="' + escapeAttr(item.title) + '">' +
+        '<div class="detail-meta">' + escapeHtml(item.filename) + ' · ' + formatBytes(item.size) + '</div>' +
+      '</div>' +
+      '<div class="detail-actions">' +
+        '<button class="btn primary" id="downloadBtn">⬇ تحميل</button>' +
+        '<button class="btn danger" id="delBtn">حذف</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="detail-body" id="detailBody"><p class="muted">جارٍ تحميل المعاينة...</p></div>';
+  main.appendChild(wrap);
+
+  const titleInput = wrap.querySelector('#itemTitle');
+  let saveTimer;
+  function saveNow() {
+    clearTimeout(saveTimer);
+    item.title = titleInput.value.trim() || 'بدون عنوان';
+    item.updatedAt = Date.now();
+    persistSoon();
+    renderList();
+  }
+  titleInput.addEventListener('input', () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 500);
+  });
+
+  wrap.querySelector('#downloadBtn').onclick = () => downloadItem(item);
+  wrap.querySelector('#delBtn').onclick = () => deleteActiveItem();
+
+  // معاينة
+  const body = wrap.querySelector('#detailBody');
+  const blob = await idb.get('blob_' + item.id);
+  if (!blob) {
+    body.innerHTML = '<p class="muted">الملف غير موجود.</p>';
+    return;
+  }
+  body.innerHTML = '';
+  const mime = item.mime || '';
+  if (mime.startsWith('image/')) {
+    const url = await getBlobUrl(item.id);
+    const img = document.createElement('img');
+    img.className = 'preview-img';
+    img.src = url;
+    body.appendChild(img);
+  } else if (mime.startsWith('text/') || /\.(txt|md|json|js|css|html|xml|csv|log)$/i.test(item.filename || '')) {
+    try {
+      const text = await blob.text();
+      const pre = document.createElement('pre');
+      pre.className = 'preview-text';
+      pre.textContent = text.slice(0, 100000);
+      body.appendChild(pre);
+    } catch (e) {
+      body.innerHTML = '<p class="muted">تعذر قراءة الملف.</p>';
+    }
+  } else if (mime === 'application/pdf') {
+    const url = await getBlobUrl(item.id);
+    const iframe = document.createElement('iframe');
+    iframe.className = 'preview-pdf';
+    iframe.src = url;
+    body.appendChild(iframe);
+  } else {
+    body.innerHTML = '<p class="muted">لا تتوفر معاينة لهذا النوع. اضغط تحميل لفتحه.</p>';
+  }
+}
+
+function fileIcon(mime) {
+  if (!mime) return '📄';
+  if (mime.startsWith('image/')) return '🖼️';
+  if (mime.startsWith('video/')) return '🎬';
+  if (mime.startsWith('audio/')) return '🎵';
+  if (mime === 'application/pdf') return '📕';
+  if (mime.startsWith('text/') || /json|xml|javascript/.test(mime)) return '📝';
+  if (/zip|rar|7z|tar|gzip/.test(mime)) return '🗜️';
+  return '📄';
+}
+
+/* ============================================================
+   وحدة الصور
+   ============================================================ */
+async function renderImagesMain(main, item) {
+  if (!item) {
+    const drop = document.createElement('div');
+    drop.className = 'dropzone';
+    drop.innerHTML =
+      '<div class="dz-icon">🖼️</div>' +
+      '<h3>اسحب الصور هنا أو اضغط للرفع</h3>' +
+      '<p>JPG · PNG · GIF · SVG · WebP وغيرها</p>';
+    const btn = document.createElement('button');
+    btn.className = 'btn primary';
+    btn.textContent = 'رفع صور';
+    btn.onclick = (e) => { e.stopPropagation(); $('imagePicker').click(); };
+    drop.appendChild(btn);
+    main.appendChild(drop);
+
+    drop.addEventListener('click', () => $('imagePicker').click());
+    drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+    drop.addEventListener('drop', async e => {
+      e.preventDefault();
+      drop.classList.remove('over');
+      const files = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith('image/'));
+      if (files.length) await handleUpload(files, 'images');
+    });
+    return;
+  }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'detail';
+  wrap.innerHTML =
+    '<div class="detail-head">' +
+      '<div class="detail-icon">🖼️</div>' +
+      '<div class="detail-title-wrap">' +
+        '<input class="title-input" id="itemTitle" value="' + escapeAttr(item.title) + '">' +
+        '<div class="detail-meta">' + formatBytes(item.size) + '</div>' +
+      '</div>' +
+      '<div class="detail-actions">' +
+        '<button class="btn primary" id="downloadBtn">⬇ تحميل</button>' +
+        '<button class="btn danger" id="delBtn">حذف</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="detail-body" id="detailBody"><p class="muted">جارٍ التحميل...</p></div>';
+  main.appendChild(wrap);
+
+  const titleInput = wrap.querySelector('#itemTitle');
+  let saveTimer;
+  function saveNow() {
+    clearTimeout(saveTimer);
+    item.title = titleInput.value.trim() || 'بدون عنوان';
+    item.updatedAt = Date.now();
+    persistSoon();
+    renderList();
+  }
+  titleInput.addEventListener('input', () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 500);
+  });
+
+  wrap.querySelector('#downloadBtn').onclick = () => downloadItem(item);
+  wrap.querySelector('#delBtn').onclick = () => deleteActiveItem();
+
+  const body = wrap.querySelector('#detailBody');
+  const url = await getBlobUrl(item.id);
+  body.innerHTML = '';
+  if (url) {
+    const img = document.createElement('img');
+    img.className = 'preview-img';
+    img.src = url;
+    img.onclick = () => openImageModal(item, url);
+    img.style.cursor = 'zoom-in';
+    body.appendChild(img);
+  } else {
+    body.innerHTML = '<p class="muted">الصورة غير موجودة.</p>';
+  }
+}
+
+/* ============================================================
+   وحدة كلمات المرور
+   ============================================================ */
+function renderPasswordsMain(main, item) {
+  if (!item) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-main';
+    empty.innerHTML = '<div class="empty-icon">🔐</div><h3>لا توجد كلمة مرور محددة</h3>' +
+      '<p>اختر عنصراً من القائمة أو أضف كلمة مرور جديدة</p>';
+    const btn = document.createElement('button');
+    btn.className = 'btn primary';
+    btn.textContent = '+ كلمة مرور جديدة';
+    btn.onclick = addNewItem;
+    empty.appendChild(btn);
+    main.appendChild(empty);
+    return;
+  }
+  renderCredentialForm(main, item, 'passwords');
+}
+
+/* ============================================================
+   وحدة الإيميلات
+   ============================================================ */
+function renderEmailsMain(main, item) {
+  if (!item) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-main';
+    empty.innerHTML = '<div class="empty-icon">📧</div><h3>لا يوجد إيميل محدد</h3>' +
+      '<p>اختر إيميلاً من القائمة أو أضف واحدًا جديدًا</p>';
+    const btn = document.createElement('button');
+    btn.className = 'btn primary';
+    btn.textContent = '+ إيميل جديد';
+    btn.onclick = addNewItem;
+    empty.appendChild(btn);
+    main.appendChild(empty);
+    return;
+  }
+  renderCredentialForm(main, item, 'emails');
+}
+
+function renderCredentialForm(main, item, type) {
+  const isEmail = type === 'emails';
+  const mod = activeMod();
+
+  const wrap = document.createElement('div');
+  wrap.className = 'form-view';
+
+  const categoryOptions = '<option value="">بدون قسم</option>' +
+    mod.categories.map(c => '<option value="' + c.id + '"' +
+      (c.id === item.categoryId ? ' selected' : '') + '>' + escapeHtml(c.name) + '</option>').join('');
+
+  wrap.innerHTML =
+    '<div class="warning">⚠️ تنبيه: تُحفظ البيانات في متصفحك فقط وبدون تشفير. لا تشارك جهازك مع الآخرين، وللأمان الكامل استخدم مدير كلمات مرور متخصص.</div>' +
+    '<div class="form-head">' +
+      '<h3>' + (isEmail ? '📧 بيانات الإيميل' : '🔐 بيانات الحساب') + '</h3>' +
+      '<button class="btn danger" id="delBtn">حذف</button>' +
+      '<button class="btn primary" id="saveBtn">حفظ</button>' +
+    '</div>' +
+    '<div class="form-body">' +
+      '<label>العنوان<input type="text" id="f-title" value="' + escapeAttr(item.title) + '"></label>' +
+      (isEmail
+        ? '<label>البريد الإلكتروني<input type="text" id="f-email" dir="ltr" value="' + escapeAttr(item.email || '') + '"></label>'
+        : '<label>اسم المستخدم<input type="text" id="f-username" dir="ltr" value="' + escapeAttr(item.username || '') + '"></label>') +
+      '<label>كلمة المرور<div class="pw-wrap">' +
+        '<input type="password" id="f-password" dir="ltr" value="' + escapeAttr(item.password || '') + '">' +
+        '<button class="eye" id="togglePw" title="إظهار/إخفاء" type="button">👁</button>' +
+        '<button class="eye" id="copyPw" title="نسخ" type="button">📋</button>' +
+      '</div></label>' +
+      (isEmail
+        ? '<label>مزوّد الخدمة<input type="text" id="f-provider" value="' + escapeAttr(item.provider || '') + '"></label>'
+        : '<label>الرابط<input type="text" id="f-url" dir="ltr" value="' + escapeAttr(item.url || '') + '"></label>') +
+      '<label>ملاحظات<textarea id="f-notes" rows="3">' + escapeHtml(item.notes || '') + '</textarea></label>' +
+      '<label>القسم<select id="f-category">' + categoryOptions + '</select></label>' +
+    '</div>';
+  main.appendChild(wrap);
+
+  const save = () => {
+    item.title = wrap.querySelector('#f-title').value.trim() || 'بدون عنوان';
+    item.password = wrap.querySelector('#f-password').value;
+    item.notes = wrap.querySelector('#f-notes').value;
+    item.categoryId = wrap.querySelector('#f-category').value || null;
+    if (isEmail) {
+      item.email = wrap.querySelector('#f-email').value;
+      item.provider = wrap.querySelector('#f-provider').value;
+    } else {
+      item.username = wrap.querySelector('#f-username').value;
+      item.url = wrap.querySelector('#f-url').value;
+    }
+    item.updatedAt = Date.now();
+    persistSoon();
+    renderList();
+    renderCats();
+  };
+
+  let timer;
+  wrap.querySelectorAll('input, textarea, select').forEach(el => {
+    el.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(save, 500); });
+    el.addEventListener('change', save);
+  });
+
+  wrap.querySelector('#saveBtn').onclick = () => { save(); toast('تم الحفظ'); };
+  wrap.querySelector('#delBtn').onclick = () => deleteActiveItem();
+
+  const pwInput = wrap.querySelector('#f-password');
+  wrap.querySelector('#togglePw').onclick = () => {
+    pwInput.type = pwInput.type === 'password' ? 'text' : 'password';
+  };
+  wrap.querySelector('#copyPw').onclick = () => {
+    if (pwInput.value) copyText(pwInput.value, 'كلمة المرور');
+  };
+}
+
+/* ============================================================
+   وحدة الملاحظات
+   ============================================================ */
+function renderNotesMain(main, item) {
+  if (!item) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-main';
+    empty.innerHTML = '<div class="empty-icon">📌</div><h3>لا توجد ملاحظة محددة</h3>' +
+      '<p>اختر ملاحظة من القائمة أو أنشئ واحدة جديدة</p>';
+    const btn = document.createElement('button');
+    btn.className = 'btn primary';
+    btn.textContent = '+ ملاحظة جديدة';
+    btn.onclick = addNewItem;
+    empty.appendChild(btn);
+    main.appendChild(empty);
+    return;
+  }
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'toolbar';
+  toolbar.innerHTML =
+    '<input class="title-input" id="itemTitle" placeholder="عنوان الملاحظة" value="' + escapeAttr(item.title) + '">' +
+    '<span class="status" id="status"></span>' +
+    '<button class="btn danger" id="delBtn">حذف</button>' +
+    '<button class="btn" id="saveBtn">حفظ</button>';
+  main.appendChild(toolbar);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'editor-wrap';
+  wrap.style.flex = '1';
+  wrap.style.background = 'transparent';
+  const textarea = document.createElement('textarea');
+  textarea.id = 'notesArea';
+  textarea.value = item.content || '';
+  textarea.style.cssText = 'position:static;width:100%;height:100%;padding:24px;background:transparent;color:var(--text);font-size:15px;line-height:1.8;resize:none;direction:rtl;text-align:right';
+  wrap.appendChild(textarea);
+  main.appendChild(wrap);
+
+  const titleInput = main.querySelector('#itemTitle');
+  const status = main.querySelector('#status');
+  let flashTimer;
+  function flash(msg) {
+    status.textContent = msg;
+    status.classList.add('show');
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => status.classList.remove('show'), 1500);
+  }
+
+  let saveTimer;
+  function saveNow() {
+    clearTimeout(saveTimer);
+    item.content = textarea.value;
+    item.title = titleInput.value.trim() || 'بدون عنوان';
+    item.updatedAt = Date.now();
+    persistSoon();
+    renderList();
+  }
+  textarea.addEventListener('input', () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 500);
+  });
+  titleInput.addEventListener('input', () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 500);
+  });
+
+  main.querySelector('#saveBtn').onclick = () => { saveNow(); flash('تم الحفظ ✓'); };
+  main.querySelector('#delBtn').onclick = () => deleteActiveItem();
+}
+
+/* ============================================================
+   إضافة / حذف / تعديل
+   ============================================================ */
+function newItem(moduleId) {
+  const mod = state.modules[moduleId];
+  const catId = mod.activeCategory === 'all' ? null : mod.activeCategory;
+  const base = { id: uid(), title: 'بدون عنوان', categoryId: catId, updatedAt: Date.now() };
+
+  switch (moduleId) {
+    case 'code':
+      return Object.assign(base, { title: 'كود جديد', content: SAMPLE_CODE });
+    case 'notes':
+      return Object.assign(base, { title: 'ملاحظة جديدة', content: '' });
+    case 'passwords':
+      return Object.assign(base, { title: 'كلمة مرور جديدة', username: '', password: '', url: '', notes: '' });
+    case 'emails':
+      return Object.assign(base, { title: 'إيميل جديد', email: '', password: '', provider: '', notes: '' });
+    default:
+      return null;
+  }
+}
+
+function addNewItem() {
+  const moduleId = state.activeModule;
+  if (moduleId === 'files') { $('filePicker').click(); return; }
+  if (moduleId === 'images') { $('imagePicker').click(); return; }
+
+  const item = newItem(moduleId);
+  if (!item) return;
+  const mod = state.modules[moduleId];
+  mod.items.unshift(item);
+  mod.activeItemId = item.id;
+  persistNow();
+  render();
+}
+
+function deleteActiveItem() {
+  const mod = activeMod();
+  const item = getActiveItem();
+  if (!item) return;
+  if (!confirm('هل تريد حذف "' + (item.title || 'بدون عنوان') + '" ؟')) return;
+
+  const idx = mod.items.findIndex(x => x.id === item.id);
+  mod.items.splice(idx, 1);
+
+  if (state.activeModule === 'files' || state.activeModule === 'images') {
+    idb.del('blob_' + item.id).catch(() => {});
+    revokeBlob(item.id);
+  }
+
+  if (!mod.items.length) {
+    mod.activeItemId = null;
+  } else {
+    mod.activeItemId = mod.items[Math.max(0, idx - 1)].id;
+  }
+  persistNow();
+  render();
+  toast('تم الحذف');
+}
+
+/* ============================================================
+   رفع الملفات
+   ============================================================ */
+async function handleUpload(files, moduleId) {
+  if (!files || !files.length) return;
+  const mod = state.modules[moduleId];
+  const catId = mod.activeCategory === 'all' ? null : mod.activeCategory;
+
+  for (const file of files) {
+    const id = uid();
+    try {
+      await idb.set('blob_' + id, file);
+    } catch (e) {
+      alert('تعذر حفظ الملف: ' + file.name);
+      continue;
+    }
+    const item = {
+      id,
+      title: file.name.replace(/\.[^.]+$/, ''),
+      filename: file.name,
+      mime: file.type || 'application/octet-stream',
+      size: file.size,
+      categoryId: catId,
+      updatedAt: Date.now()
+    };
+    mod.items.unshift(item);
+    mod.activeItemId = item.id;
+  }
+  await persistNow();
+  render();
+  toast('تم رفع ' + files.length + ' ملف');
+}
+
+async function downloadItem(item) {
+  const blob = await idb.get('blob_' + item.id);
+  if (!blob) { alert('الملف غير موجود'); return; }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = item.filename || 'file';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+/* ============================================================
+   التصنيفات
+   ============================================================ */
+function addCategory() {
+  const name = prompt('اسم القسم الجديد:');
+  if (!name || !name.trim()) return;
+  const mod = activeMod();
+  const color = CAT_COLORS[mod.categories.length % CAT_COLORS.length];
+  mod.categories.push({ id: uid(), name: name.trim(), color });
+  persistNow();
+  renderCats();
+  renderList();
+}
+
+function deleteCategory(id) {
+  const mod = activeMod();
+  const cat = mod.categories.find(c => c.id === id);
+  if (!cat) return;
+  const count = mod.items.filter(it => it.categoryId === id).length;
+  const msg = count
+    ? 'حذف القسم "' + cat.name + '" ؟ سيتم إبقاء ' + count + ' عنصر بدون قسم.'
+    : 'حذف القسم "' + cat.name + '" ؟';
+  if (!confirm(msg)) return;
+
+  mod.categories = mod.categories.filter(c => c.id !== id);
+  mod.items.forEach(it => { if (it.categoryId === id) it.categoryId = null; });
+  if (mod.activeCategory === id) mod.activeCategory = 'all';
+  persistNow();
+  renderCats();
+  renderList();
+  renderMain();
+}
+
+/* ============================================================
+   المودال
+   ============================================================ */
+function openImageModal(item, url) {
+  const modal = $('modal');
+  modal.innerHTML =
+    '<div class="modal-box">' +
+      '<button class="modal-close" aria-label="إغلاق">×</button>' +
+      '<img class="modal-img" src="' + url + '" alt="' + escapeAttr(item.title) + '">' +
+      '<div class="modal-info">' +
+        '<h3>' + escapeHtml(item.title) + '</h3>' +
+        '<p>' + escapeHtml(item.filename || '') + ' · ' + formatBytes(item.size) + '</p>' +
+      '</div>' +
+    '</div>';
+  modal.hidden = false;
+  modal.querySelector('.modal-close').onclick = closeModal;
+  modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+}
+function closeModal() { $('modal').hidden = true; }
+
+/* ============================================================
+   تصدير / استيراد
+   ============================================================ */
+function blobToBase64(blob) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(',')[1] || '');
+    r.onerror = () => rej(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+function base64ToBlob(b64, mime) {
+  const bin = atob(b64);
+  const len = bin.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: mime || 'application/octet-stream' });
+}
+
+async function exportAll() {
+  try {
+    toast('جارٍ تجهيز التصدير...');
+    const data = JSON.parse(JSON.stringify(state));
+    data._blobs = {};
+    let totalSize = 0;
+    for (const moduleId of ['files', 'images']) {
+      for (const item of data.modules[moduleId].items) {
+        const blob = await idb.get('blob_' + item.id);
+        if (blob) {
+          totalSize += blob.size;
+          data._blobs[item.id] = {
+            data: await blobToBase64(blob),
+            mime: item.mime || 'application/octet-stream'
+          };
+        }
+      }
+    }
+    if (totalSize > 50 * 1024 * 1024) {
+      if (!confirm('حجم الملفات ' + formatBytes(totalSize) + '. قد يستغرق التصدير وقتاً. متابعة؟')) return;
+    }
+    const json = JSON.stringify(data);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'vault-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    toast('تم التصدير');
+  } catch (e) {
+    console.error(e);
+    alert('فشل التصدير: ' + e.message);
+  }
+}
+
+$('importInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!data || !data.modules) throw new Error('صيغة غير معروفة');
+    if (!confirm('سيتم استبدال جميع البيانات الحالية. متابعة؟')) { e.target.value = ''; return; }
+
+    if (data._blobs) {
+      for (const [id, b] of Object.entries(data._blobs)) {
+        try {
+          const blob = base64ToBlob(b.data, b.mime);
+          await idb.set('blob_' + id, blob);
+        } catch (err) { console.warn('فشل استيراد ملف ' + id, err); }
+      }
+      delete data._blobs;
+    }
+
+    // ضمان التكامل
+    for (const moduleId of Object.keys(MODULES)) {
+      if (!data.modules[moduleId]) {
+        data.modules[moduleId] = { activeCategory: 'all', activeItemId: null, categories: [], items: [] };
+      }
+      const mod = data.modules[moduleId];
+      if (!Array.isArray(mod.categories)) mod.categories = [];
+      if (!Array.isArray(mod.items)) mod.items = [];
+      if (mod.activeCategory && mod.activeCategory !== 'all' &&
+          !mod.categories.some(c => c.id === mod.activeCategory)) {
+        mod.activeCategory = 'all';
+      }
+      if (!mod.activeItemId || !mod.items.find(i => i.id === mod.activeItemId)) {
+        mod.activeItemId = mod.items[0] ? mod.items[0].id : null;
+      }
+    }
+    if (!MODULES[data.activeModule]) data.activeModule = 'code';
+
+    state = data;
+    blobUrlCache.forEach(url => URL.revokeObjectURL(url));
+    blobUrlCache.clear();
+    await persistNow();
+    searchTerm = '';
+    render();
+    toast('تم الاستيراد بنجاح');
+  } catch (err) {
+    console.error(err);
+    alert('ملف غير صالح: ' + err.message);
+  }
+  e.target.value = '';
+});
+
+/* ============================================================
+   معلومات التخزين
+   ============================================================ */
+async function updateStorageInfo() {
+  if (!navigator.storage || !navigator.storage.estimate) return;
+  try {
+    const { usage, quota } = await navigator.storage.estimate();
+    const el = $('storageInfo');
+    if (el) el.textContent = formatBytes(usage) + ' / ' + formatBytes(quota);
+  } catch (e) {}
+}
+
+/* ============================================================
+   الرسم الكامل
+   ============================================================ */
+async function render() {
+  renderTabs();
+  renderSidebar();
+  await renderMain();
+  updateStorageInfo();
+}
+
+/* ============================================================
+   رموز طائرة
+   ============================================================ */
+function spawnFloaters() {
+  const container = $('floaters');
+  const symbols = ['{ }','</>','=>','[]','()','&&','||','!==','++','///','/*','*/','::','...','<div>','<p>','if','fn','git','npm','const','let','==','!=','async','await'];
+  for (let i = 0; i < 16; i++) {
+    const el = document.createElement('div');
+    el.className = 'floater';
+    el.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+    el.style.fontSize = (12 + Math.random() * 22) + 'px';
+    el.style.left = (Math.random() * 100) + '%';
+    el.style.top = (Math.random() * 100) + '%';
+    el.style.setProperty('--op', (0.05 + Math.random() * 0.09).toFixed(2));
+    el.style.setProperty('--dx', (Math.random() * 60 - 30).toFixed(0) + 'px');
+    el.style.setProperty('--dy', (Math.random() * 60 - 30).toFixed(0) + 'px');
+    el.style.setProperty('--rot', (Math.random() * 20 - 10).toFixed(0) + 'deg');
+    el.style.setProperty('--dur', (14 + Math.random() * 22).toFixed(0) + 's');
+    el.style.setProperty('--delay', (Math.random() * -20).toFixed(0) + 's');
+    el.style.color = CAT_COLORS[Math.floor(Math.random() * CAT_COLORS.length)];
+    container.appendChild(el);
+  }
+}
+
+/* ============================================================
+   المستمعات العامة
+   ============================================================ */
+$('exportBtn').onclick = exportAll;
+$('importBtn').onclick = () => $('importInput').click();
+
+$('filePicker').addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files || []);
+  if (files.length) await handleUpload(files, 'files');
+  e.target.value = '';
+});
+$('imagePicker').addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files || []);
+  if (files.length) await handleUpload(files, 'images');
+  e.target.value = '';
+});
+
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+    const mod = activeModule();
+    if (mod === 'code' || mod === 'notes' || mod === 'passwords' || mod === 'emails') {
+      e.preventDefault();
+      persistNow();
+      toast('تم الحفظ');
+    }
+  }
+  if (e.key === 'Escape' && !$('modal').hidden) closeModal();
+});
+
+window.addEventListener('beforeunload', () => { persistNow(); });
+
+/* ============================================================
+   بدء التشغيل
+   ============================================================ */
+(async function init() {
+  try {
+    await idb.open();
+    const saved = await idb.get(STATE_KEY);
+    if (saved && saved.modules && saved.activeModule) {
+      state = saved;
+      // تكامل
+      for (const moduleId of Object.keys(MODULES)) {
+        if (!state.modules[moduleId]) {
+          state.modules[moduleId] = { activeCategory: 'all', activeItemId: null, categories: [], items: [] };
+        }
+      }
+    } else {
+      state = defaultState();
+      await idb.set(STATE_KEY, state);
+    }
+  } catch (e) {
+    console.error('فشل فتح قاعدة البيانات، استخدام الذاكرة المؤقتة', e);
+    state = defaultState();
+  }
+
+  await render();
+  spawnFloaters();
+})();
+
+})();
+</script>
+</body>
+</html>
